@@ -154,7 +154,7 @@ namespace DS4WLogParser
 
 					// Do something with the line
 				}
-				Console.WriteLine(LogData);
+				//Console.WriteLine(LogData);
 			}
 
 		}

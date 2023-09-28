@@ -15,12 +15,5 @@ internal class Program
 				ds4.Print();
 			}
 		}
-		else
-		{
-			var ds4 = new DS4Parser(@"C:\Program Files (x86)\DS4Windows\Logs");
-			ds4.Print();
-			
-
-		}
 	}
 }
