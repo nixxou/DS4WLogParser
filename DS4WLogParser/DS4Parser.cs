@@ -13,9 +13,10 @@ namespace DS4WLogParser
 
 	public class Controller
 	{
-		public int ControllerIndex = 0;
+		public int ControllerInputSlot = 0;
+		public int ControllerOutputSlot = 0;
+		public int ControllerXinputSlot = 0;
 		public string MacAddress = "";
-		public int XinputSlot = 0;
 		public string Profile = "";
 		public string ConnectionType = "";
 		public string ControllerType = "";
@@ -25,6 +26,8 @@ namespace DS4WLogParser
 	{
 		public string LogData = "";
 		public List<Controller> ControllerList = new List<Controller>();
+		public Dictionary<int,int> XinputSlot = new Dictionary<int,int>();
+
 		public DS4Parser(string logdir)
 		{
 			if (!Directory.Exists(logdir)) return;
@@ -48,8 +51,8 @@ namespace DS4WLogParser
 					if (match.Success)
 					{
 						Controller controller = new Controller();
-						controller.ControllerIndex = GetFirstAvailiableIndex();
-						current_controller = controller.ControllerIndex;
+						controller.ControllerInputSlot = GetFirstAvailiableIndex();
+						current_controller = controller.ControllerInputSlot;
 						controller.MacAddress = match.Groups[1].Value;
 						controller.ConnectionType = match.Groups[2].Value;
 						controller.ControllerType = match.Groups[3].Value;
@@ -63,11 +66,18 @@ namespace DS4WLogParser
 					{
 						int parsedControllerIndex = int.Parse(match.Groups[1].Value);
 						string parsedConnectionType = match.Groups[2].Value;
-						int parsedXinputSlot = int.Parse(match.Groups[3].Value);
+						int parsedOutputSlot = int.Parse(match.Groups[3].Value);
 						var controller = GetControllerByIndex(parsedControllerIndex);
 						if (controller == null) continue;
 
-						if(controller.ControllerType == parsedConnectionType) controller.XinputSlot = parsedXinputSlot;
+						if (controller.ControllerType == parsedConnectionType)
+						{
+							controller.ControllerOutputSlot = parsedOutputSlot;
+							if (XinputSlot.ContainsKey(parsedOutputSlot))
+							{
+								controller.ControllerXinputSlot = XinputSlot[parsedOutputSlot];
+							}
+						}
 						continue;
 					}
 
@@ -89,15 +99,15 @@ namespace DS4WLogParser
 					if (match.Success)
 					{
 						int parsedControllerIndex = int.Parse(match.Groups[1].Value);
-						int parsedXinputSlot = int.Parse(match.Groups[2].Value);
+						int parsedOutputSlot = int.Parse(match.Groups[2].Value);
 						var controller = GetControllerByIndex(parsedControllerIndex);
 						if (controller == null) continue;
 
-						controller.XinputSlot = 0;
+						controller.ControllerOutputSlot = 0;
 						continue;
 					}
 
-					pattern = @"Unplugging virtual X360 Controller from output slot #([0-9]*)";
+					pattern = @"Controller ([0-9]*) was removed or lost connection";
 					match = Regex.Match(line, pattern);
 					if (match.Success)
 					{
@@ -109,11 +119,42 @@ namespace DS4WLogParser
 						ControllerList.Remove(controller);
 						continue;
 					}
+
+					pattern = @"Plugging in virtual X360 controller \(XInput slot #([0-9]*)\) in output slot #([0-9]*)";
+					match = Regex.Match(line, pattern);
+					if (match.Success)
+					{
+						int parsedXinputSlot = int.Parse(match.Groups[1].Value);
+						int parsedOutputSlot = int.Parse(match.Groups[2].Value);
+						XinputSlot[parsedOutputSlot] = parsedXinputSlot;
+
+						foreach ( Controller controller in ControllerList )
+						{
+							if(controller.ControllerOutputSlot == parsedOutputSlot)
+							{
+								controller.ControllerXinputSlot = parsedXinputSlot;
+							}
+						}
+
+					}
+
+					pattern = @"Unplugging virtual X360 Controller from output slot #([0-9]*)";
+					match = Regex.Match(line, pattern);
+					if (match.Success)
+					{
+						int parsedOutputSlot = int.Parse(match.Groups[1].Value);
+						if (XinputSlot.ContainsKey(parsedOutputSlot))
+						{
+							XinputSlot.Remove(parsedOutputSlot);
+						}
+					}
 					
+
+
 
 					// Do something with the line
 				}
-				//Console.WriteLine(LogData);
+				Console.WriteLine(LogData);
 			}
 
 		}
@@ -148,7 +189,7 @@ namespace DS4WLogParser
 				found = false;
 				foreach (var controller in ControllerList)
 				{
-					if (controller.ControllerIndex == min_index)
+					if (controller.ControllerInputSlot == min_index)
 					{
 						found = true;
 						min_index++;
@@ -163,7 +204,7 @@ namespace DS4WLogParser
 		{
 			foreach (var controller in ControllerList)
 			{
-				if (controller.ControllerIndex == index)
+				if (controller.ControllerInputSlot == index)
 				{
 					return controller;
 				}
